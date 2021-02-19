@@ -1,0 +1,72 @@
+---
+title: "R Notebook"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  word_document: default
+  html_notebook: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+dfTrain <- read.csv("dfT.csv") # This is the csv file we generated from data processing code
+dfT <- dfTrain %>% sample_frac(.80) # Splitting data into train and validation
+dfVal <- setdiff(dfTrain, dfT)
+```
+
+```{r}
+library(xgboost) # loading the xgboost library
+dfT
+```
+
+```{r}
+set.seed(123) # setting seed to get similar results on replication 
+
+X_train = xgb.DMatrix(as.matrix(dfT %>% select(-high_booking_rate)))
+y_train = dfT$high_booking_rate
+```
+
+```{r}
+X_test = xgb.DMatrix(as.matrix(dfVal %>% select(-high_booking_rate)))
+y_test = dfVal$high_booking_rate
+```
+
+
+```{r}
+# training the model over the data with 10 fold cross validation
+xgb_trcontrol = trainControl(
+  method = "cv",
+  number = 10,  
+  allowParallel = TRUE,
+  verboseIter = FALSE,
+  returnData = FALSE
+)
+```
+
+```{r}
+xgbGrid <- expand.grid(nrounds = c(100,200),  # this is n_estimators in the python code above
+                       max_depth = c(10, 15, 20, 25),
+                       colsample_bytree = seq(0.5, 0.9, length.out = 5),
+                       ## The values below are default values in the sklearn-api.
+                       eta = 0.1,
+                       gamma=0,
+                       min_child_weight = 1,
+                       subsample = 1
+                      )
+```
+
+```{r}
+set.seed(123)
+xgb_model = train(
+  X_train, y_train,  
+  trControl = xgb_trcontrol,
+  tuneGrid = xgbGrid,
+  metric = "Accuracy",
+  method = "xgbTree"
+)
+```

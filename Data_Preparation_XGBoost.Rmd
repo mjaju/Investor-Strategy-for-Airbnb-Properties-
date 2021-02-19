@@ -1,0 +1,133 @@
+---
+title: "R Notebook"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  word_document: default
+  html_notebook: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+# This chunk shows/hides the code in your final report. When echo = TRUE, the code
+# is shown in the report. When echo = FALSE, the code is hidden from the final report.
+# We would like to see your code, so please leave the setting as is during the course.
+# This chunk will not show up in your reports, so you can safely ignore its existence.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+Loading the necessary libraries.
+
+```{r}
+library("tidyverse")
+library("tidymodels")
+library("plotly")
+library("skimr")
+library("caret")
+library("lubridate")
+library("plyr")
+```
+
+```{r}
+# reading the data and loading them in R dataframes
+dfTrain <- read.csv("airbnbTrain.csv")
+dfTest <- read.csv("airbnbTest.csv")
+
+```
+
+
+```{r}
+# Lets us look at how the data is without processing
+head(dfTrain)
+```
+
+
+```{r}
+# Removing redundant columns that do not make any contribution to the booking rates or price
+colsToDrop <- c("weekly_price","id","zipcode","X.randomControl.","host_acceptance_rate",
+"host_has_profile_pic","square_feet","latitude","longitude","require_guest_phone_verification",
+"require_guest_profile_picture","space","state","transit","monthly_price","access","city","description",
+"interaction","neighborhood_overview","host_about","host_location","host_neighbourhood",
+"host_response_rate","host_response_time","host_since","host_verifications","house_rules","notes","is_location_exact",
+"market","requires_license", "review_scores_accuracy","review_scores_checkin","review_scores_cleanliness","review_scores_communication",
+"review_scores_location","review_scores_rating","review_scores_value","host_listings_count", "is_business_travel_ready",
+"availability_30","availability_60","availability_90","amenities","neighbourhood")
+dfTrain <- dfTrain %>% select(-all_of(colsToDrop))
+dfTest <- dfTest %>% select(-all_of(colsToDrop))
+```
+
+
+```{r}
+# In order to run XG Boost, we will need to convert all results into numeric or factors
+dfTrain$security_deposit <- as.numeric(gsub('\\$|,', '', dfTrain$security_deposit))
+dfTest$security_deposit <- as.numeric(gsub('\\$|,', '', dfTest$security_deposit))
+
+dfTrain$cleaning_fee <- as.numeric(gsub('\\$|,', '', dfTrain$cleaning_fee))
+dfTest$cleaning_fee <- as.numeric(gsub('\\$|,', '', dfTest$cleaning_fee))
+
+dfTrain$extra_people <- as.numeric(gsub('\\$|,', '', dfTrain$extra_people))
+dfTest$extra_people <- as.numeric(gsub('\\$|,', '', dfTest$extra_people))
+
+dfTrain$price <- as.numeric(gsub('\\$|,', '', dfTrain$price))
+dfTest$price <- as.numeric(gsub('\\$|,', '', dfTest$price))
+
+```
+
+
+```{r}
+# another method of converting text data to dummies while checking for null values
+dfTrain$cleaning_fee <- ifelse(is.na(dfTrain$cleaning_fee),0,dfTrain$cleaning_fee)
+dfTest$cleaning_fee <- ifelse(is.na(dfTest$cleaning_fee),0,dfTest$cleaning_fee)
+
+dfTrain$extra_people <- ifelse(is.na(dfTrain$extra_people),0,dfTrain$extra_people)
+dfTest$extra_people <- ifelse(is.na(dfTest$extra_people),0,dfTest$extra_people)
+
+dfTrain$price <- ifelse(is.na(dfTrain$price),0,dfTrain$price)
+dfTest$price <- ifelse(is.na(dfTest$price),0,dfTest$price)
+
+dfTrain$security_deposit <- ifelse(is.na(dfTrain$security_deposit),0,dfTrain$security_deposit)
+dfTest$security_deposit <- ifelse(is.na(dfTest$security_deposit),0,dfTest$security_deposit)
+                   
+```
+
+
+```{r}
+dfTrain$bedrooms = ifelse(is.na(dfTrain$bedrooms), ave(dfTrain$bedrooms, FUN = function(x) median(x, na.rm = TRUE)), dfTrain$bedrooms)
+dfTrain$beds = ifelse(is.na(dfTrain$beds), ave(dfTrain$beds, FUN = function(x) median(x, na.rm = TRUE)), dfTrain$beds)
+dfTrain$bathrooms = ifelse(is.na(dfTrain$bathrooms), ave(dfTrain$bathrooms, FUN = function(x) median(x, na.rm = TRUE)), dfTrain$bathrooms)
+dfTrain$host_identity_verified = ifelse(is.na(dfTrain$host_identity_verified),FALSE, dfTrain$host_identity_verified)
+dfTrain$host_is_superhost = ifelse(is.na(dfTrain$host_is_superhost),FALSE, dfTrain$host_is_superhost)
+
+dfTest$bedrooms = ifelse(is.na(dfTest$bedrooms), ave(dfTest$bedrooms, FUN = function(x) median(x, na.rm = TRUE)), dfTest$bedrooms)
+dfTest$beds = ifelse(is.na(dfTest$beds), ave(dfTest$beds, FUN = function(x) median(x, na.rm = TRUE)), dfTest$beds)
+dfTest$bathrooms = ifelse(is.na(dfTest$bathrooms), ave(dfTest$bathrooms, FUN = function(x) median(x, na.rm = TRUE)), dfTest$bathrooms)
+dfTest$host_identity_verified = ifelse(is.na(dfTest$host_identity_verified),FALSE, dfTest$host_identity_verified)
+dfTest$host_is_superhost = ifelse(is.na(dfTest$host_is_superhost),FALSE, dfTest$host_is_superhost)
+
+```
+
+
+```{r}
+dfTrain$high_booking_rate <- as.factor(dfTrain$high_booking_rate)
+
+dfTrain$property_type <- as.numeric(dfTrain$property_type)
+dfTest$property_type <- as.numeric(dfTest$property_type)
+
+dfTrain$room_type <- as.numeric(dfTrain$room_type)
+dfTest$room_type <- as.numeric(dfTest$room_type)
+
+dfTrain$bed_type <- as.numeric(dfTrain$bed_type)
+dfTest$bed_type <- as.numeric(dfTest$bed_type)
+
+dfTrain$cancellation_policy <- as.numeric(dfTrain$cancellation_policy)
+dfTest$cancellation_policy <- as.numeric(dfTest$cancellation_policy)
+
+```
+
+```{r}
+# saving our processed data as csv to be used in xgboost_model.Rmd
+write.csv(dfOut, "dfT`.csv", row.names = FALSE)
+
+```
