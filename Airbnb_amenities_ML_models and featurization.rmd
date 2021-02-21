@@ -1,0 +1,328 @@
+---
+title: "R Notebook"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  word_document: default
+  html_notebook: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+# This chunk shows/hides the code in your final report. When echo = TRUE, the code
+# is shown in the report. When echo = FALSE, the code is hidden from the final report.
+# We would like to see your code, so please leave the setting as is during the course.
+# This chunk will not show up in your reports, so you can safely ignore its existence.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+The following is your first chunk to start with. Remember, you can add chunks using the menu
+above (Insert -> R) or using the keyboard shortcut Ctrl+Alt+I. A good practice is to use
+different code chunks to answer different questions. You can delete this comment if you like.
+
+Other useful keyboard shortcuts include Alt- for the assignment operator, and Ctrl+Shift+M
+for the pipe operator. You can delete these reminders if you don't want them in your report.
+
+
+```{r}
+#setwd("C:/") #Don't forget to set your working directory before you start!
+
+library("tidyverse")
+library("fpp3")
+library("plotly")
+library("skimr")
+library("lubridate")
+library(dplyr)
+library(readr)
+library(caret)
+
+```
+Q1
+a
+```{r}
+#loading the dataset
+df <- read_csv("airlines.csv")
+df
+```
+
+```{r}
+skim(df)
+```
+
+
+```{r}
+set.seed(123)
+# dividing the data intro train and test
+dfTrain <- df %>% sample_frac(.70)
+dfTest <- setdiff(df, dfTrain)
+```
+
+```{r}
+# Box plot helps us know about any oiutliers in the data for Balance column
+boxPlot1 <- ggplot(data= dfTrain, aes(x=as.factor(Award), y=Balance)) +
+            geom_boxplot()
+boxPlot1
+ggplotly(boxPlot1)
+
+```
+
+```{r}
+# Box plot helps us know about any oiutliers in the data for the column - Bonus Miles 
+plotBonus <- ggplot(data= dfTrain, aes(x=as.factor(Award), y=Bonus_miles)) +
+         geom_boxplot()
+plotBonus
+ggplotly(plotBonus)
+
+```
+
+```{r}
+# Box plot helps us know about any oiutliers in the data for the column - Miles
+daysPlot <- ggplot(data= dfTrain, aes(x=as.factor(Award), y =  Qual_miles,)) +
+            geom_boxplot()
+daysPlot
+ggplotly(daysPlot)
+
+```
+
+```{r}
+# Box plot helps us know about any oiutliers in the data for the column -Days since the property is enrolled (created from a primary column)
+daysPlot <- ggplot(data= dfTrain, aes(x=as.factor(Award), y =  Days_since_enroll)) +
+            geom_boxplot()
+daysPlot
+ggplotly(daysPlot)
+
+```
+```{r}
+# Box plot helps us know about any oiutliers in the data for the column - cc3 miles
+daysPlot <- ggplot(data= dfTrain, aes(x=as.factor(Award), y =  cc3_miles,)) +
+            geom_boxplot()
+daysPlot
+ggplotly(daysPlot)
+
+```
+
+
+```{r}
+# Fitting the data to a LPM model
+fitLPM0 <- lm(Award~., data = dfTrain)
+summary(fitLPM0)
+
+```
+Removing cc2_miles
+```{r}
+# Fitting the data to a linear regressor model
+fitLPM <- lm(Award~.-cc2_miles - cc3_miles - ID - Flight_miles_12mo, data = dfTrain)
+summary(fitLPM)
+
+```
+```{r}
+# Finding corelations matrix to see dependencies in the features
+res <- cor(df)
+res
+```
+
+```{r}
+# Predicting the data on train set
+Resultrain <- dfTrain %>%
+                      mutate(predictedProb = predict(fitLPM,data = dfTrain, type='response'))
+Resultrain
+```
+
+```{r}
+# Predicting the data on test set
+Resultest <- dfTest %>%
+                      mutate(predictedProb = predict(fitLPM, newdata = dfTest, type='response')) 
+Resultest
+```
+
+
+```{r}
+# Converting Awards to factor type to run the following ML models
+dfNew <- df %>% mutate(Award = as.factor(Award))
+set.seed(123)
+```
+
+```{r}
+dfTrainNew <- dfNew %>% sample_frac(.70)
+dfTestNew <- setdiff(dfNew, dfTrainNew)
+```
+
+```{r}
+# Fitting the LDA model on the data
+fitLDA <- train(Award ~ ., data=dfTrainNew, method='lda', trControl=trainControl(method='cv', number=10))
+```
+
+```{r}
+# Gettintg the results of the fitted model 
+resultsLDA <-
+  fitLDA %>%
+  predict(dfTestNew, type='raw') %>%
+  bind_cols(dfTestNew, predAward=.)
+
+```
+
+```{r}
+
+resultsLDA %>% 
+  mutate(isCorrect = ifelse(predAward == Award, 1, 0)) %>%
+  xtabs(~predAward + Award, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+```{r}
+set.seed(123)
+# Fitting the QDA model on the data
+fitQDA <- train(Award ~ .-cc3_miles, data=dfTrainNew, method='qda', trControl=trainControl(method='cv', number=10))
+
+resultQDA <-
+  fitQDA %>%
+  predict(dfTestNew, type='raw') %>%
+  bind_cols(dfTestNew, predAward=.)
+
+resultQDA %>% 
+  mutate(isCorrect = ifelse(predAward == Award, 1, 0)) %>%
+  xtabs(~predAward+Award, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+```{r}
+# Using crossfold validation to fit the data with the ML model - kNN
+set.seed(123)
+fitKNN <- train(Award ~ .-cc2_miles - Flight_miles_12mo -cc1_miles, method='knn', data=dfTrainNew, trControl=trainControl(method='cv', number=10), preProcess = c("center", "scale"), tuneLength = 30)
+
+```
+
+
+```{r}
+plot(fitKNN) #You can run just fitKNN to see it as a table
+```
+
+```{r}
+fitKNN$bestTune
+```
+
+```{r}
+# Getting the stats of the model
+fitKNN$finalModel
+```
+```{r}
+# Getting the model to fit and predict on the test set
+resultsKNN <-  
+  fitKNN %>% 
+  predict(dfTestNew, type='raw') %>%
+  bind_cols(dfTestNew, predAward=.)
+```
+
+```{r}
+# Plotting the Confusion matrix to see specificity and sensitivity
+resultsKNN %>% 
+  xtabs(~predAward + Award, .) %>% 
+  confusionMatrix(positive = '1')
+```
+
+```{r}
+# Fittig the logarithmic binomial model 
+fitLog <- train(Award  ~ ., family='binomial', data=dfTrainNew, method='glm')
+summary(fitLog)
+```
+#Q41
+```{r}
+valuesLambda <- 10^seq(-5, 2, length = 100)
+set.seed(123)
+fitLasso <- train(Award ~ ., family='binomial', data=dfTrainNew, method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid = expand.grid(alpha=1, lambda=valuesLambda))
+
+#Variable importance complete unique
+varImp(fitLasso)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+
+
+plot(varImp(fitLasso))
+
+
+```
+
+```{r}
+valuesLambda <- 10^seq(-5, 2, length = 100)
+
+set.seed(123)
+
+# Fitting the Lasso model 
+fitLasso1 <- train(Award ~ ., family='binomial', data=dfTrainNew,
+method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid =
+expand.grid(alpha=1, lambda=valuesLambda))
+
+summary(fitLasso1)
+
+```
+
+```{r}
+
+varImp(fitLasso1)$importance %>%    # Add scale=FALSE inside VarImp if you don't want to scale
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+# The result is a score fo all features as percentage
+```
+
+
+```{r}
+plot(varImp(fitLasso1), top = 10)
+# plotting the importance of top 10 features
+```
+
+```{r}
+# Running the random Forest model over the data to find feature importance
+require(randomForest)
+fitRf=randomForest(factor(Award)~., data = dfTrainNew)
+```
+
+
+
+```{r}
+varImp(fitRf)
+```
+```{r}
+# Finding the importance using variable Featurization
+VI_F=importance(fitRf)
+barplot(t(VI_F/sum(VI_F)))
+```
+
+
+```{r}
+valuesLambda <- 10^seq(-5, 2, length = 100)
+
+# Runninh the Ridge model over the dataset
+set.seed(123)
+fitRidge <- train(Award ~ ., family='binomial', data=dfTrainNew,
+method='glmnet', trControl=trainControl(method='cv', number=10), tuneGrid =
+expand.grid(alpha=0, lambda=valuesLambda))
+
+```
+
+```{r}
+# Summarizing the results 
+summary(fitRidge)
+```
+
+```{r}
+varImp(fitRidge)$importance %>%    
+  rownames_to_column(var = "Variable") %>%
+  mutate(Importance = scales::percent(Overall/100)) %>% 
+  arrange(desc(Overall)) %>% 
+  as_tibble()
+```
+
+
+```{r}
+# Plotting the importance of the ridge model as percentages of importance
+plot(varImp(fitRidge), top = 10)
+```
+
