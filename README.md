@@ -1,5 +1,7 @@
 # Investor-Strategy-for-Airbnb-Properties-
-Data Mining and ML modeling on Airbnb Data (Austin) that gives an understanding of how different factors affect booking rates and prices.
+Data Mining and ML modeling on Airbnb Data (Austin) that gives an understanding of how different factors affect booking rates and prices.  
+In order to perfomr ensembling methods, we first need to make sure the data is in the correct format and is cleaned. Find the [data processing code](https://github.com/mjaju/Investor-Strategy-for-Airbnb-Properties-/blob/main/Data_Preparation_XGBoost.Rmd) here.  
+You can find the [XG Boost code ](https://github.com/mjaju/Investor-Strategy-for-Airbnb-Properties-/blob/main/Data_Preparation_XGBoost.Rmd) here.  
 
 Libraries used : 
 library("tidyverse")  
